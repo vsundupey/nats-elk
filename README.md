@@ -1,5 +1,5 @@
 # nats-top-elk
-Utility for forwarding NATS monitoring data to ELK Stack
+Utility for forwarding [NATS Message Broker](http://nats.io/) monitoring data to ELK Stack. Visit http://nats.io/documentation/ for more information about NATS.
 
 # Install 
 $ go get github.com/vsundupey/nats-elk
@@ -47,3 +47,5 @@ output
 # Demo tutorial
 
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/E6GJJn7eVc8/0.jpg)](https://www.youtube.com/watch?v=E6GJJn7eVc8)
+
+Video demonstration about how to create real-time dashboards in Kibana.
