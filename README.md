@@ -13,7 +13,10 @@ $ nats-elk -c config.json
 # Config file config.json
 ```
 {
+  "logFilePath" : "path_to_your_log_file",
   "interval": 1000, # ms
+  "debugMode": false,
+  "traceMode": false,
   "logStashUrl": "http://your_logstash_address",
   "LgLogin": "demo",    # logstash login
   "LgPassword": "demo", # logstash password
