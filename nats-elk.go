@@ -9,12 +9,17 @@ import (
 	"net/url"
 	"os"
 	"time"
+	"log"
 
 	"github.com/jmcvetta/napping"
+	"bytes"
 )
 
 type Configuration struct {
+	LogFilePath string
 	Interval    int
+	DebugMode   bool
+	TraceMode   bool
 	LogStashUrl string
 	LgLogin     string // logstash login
 	LgPassword  string // logstash password
@@ -81,7 +86,7 @@ type PrevInOutValues struct {
 	In_bytes  int
 	Out_bytes int
 
-	Now time.Time
+	Now       time.Time
 }
 type InOutPerSec struct {
 	In_msgs_sec   int
@@ -96,15 +101,28 @@ func main() {
 
 	config := Configuration{}
 
-	var configPath string
-
-	flag.StringVar(&configPath, "c", "path to config file", "")
-	flag.StringVar(&configPath, "string", "path to config file", "")
+	configPathCL := flag.String("c", "", "path to config file")
+	logFilePathCL := flag.String("l", "", "path to log file")
+	isDebugCL := flag.Bool("d", false, "DEBUG mode")
+	isTraceCL := flag.Bool("t", false, "TRACE mode")
 
 	setFlag(flag.CommandLine)
 	flag.Parse()
 
-	config = readConfig(configPath)
+	config = readConfig(*configPathCL)
+
+	isDebug := config.DebugMode
+	isTrace := config.DebugMode
+
+	if *isDebugCL {
+		isDebug = *isDebugCL
+	}
+
+	if *isTraceCL {
+		isTrace = *isTraceCL
+	}
+
+	setLogOutput(config, *logFilePathCL)
 
 	httpClient := http.Client{}
 	httpClient.Timeout = time.Duration(300) * time.Millisecond
@@ -112,6 +130,9 @@ func main() {
 	sessionToLogstash := napping.Session{Userinfo: url.UserPassword(config.LgLogin, config.LgPassword)}
 
 	e := HttpError{}
+
+	log.Printf("NATS-ELK forwarder started\n")
+	log.Printf("Interval of requests: %d ms\n", config.Interval)
 
 	for true {
 		for _, url := range config.NatsUrls {
@@ -125,19 +146,23 @@ func main() {
 
 			varzResponse, err := sessionToNats.Get(varzUrl, nil, &varz, &e)
 
-			if err != nil {
-				fmt.Println(err)
+			if err != nil && isDebug {
+				log.Printf("%v\n", err)
 				continue
 			}
 
 			connzResponse, err := sessionToNats.Get(connzUrl, nil, &connzs, &e)
 
-			if err != nil {
-				fmt.Println(err)
+			if err != nil && isDebug {
+				log.Printf("%v\n", err)
 				continue
 			}
 
 			if varzResponse.Status() == 200 && connzResponse.Status() == 200 {
+
+				if isDebug {
+					log.Printf("Get data from nats node (%v) - Success\n", url)
+				}
 
 				perSecValues := getPerSecValues(url, varz)
 
@@ -150,15 +175,18 @@ func main() {
 				natsNodeTopInfo.Varz = varz
 				natsNodeTopInfo.Connz = connzs
 
-				fmt.Println(natsNodeTopInfo)
-				fmt.Printf("Sending to logstash -> ")
+				if isTrace {
+					printPrettyJson(natsNodeTopInfo)
+				}
+
 				logstashResponse, err := sessionToLogstash.Post(config.LogStashUrl, natsNodeTopInfo, nil, &e)
 
-				if err != nil {
-					fmt.Println(err)
+				if err != nil && isDebug {
+					log.Printf("Sending to logstash -> Error: ")
+					log.Printf("%v\n", err)
 				}
-				if logstashResponse.Status() == 200 {
-					fmt.Println("Success\n")
+				if logstashResponse.Status() == 200 && isDebug {
+					log.Printf("Sending to logstash (%v): Success\n", config.LogStashUrl)
 				}
 			}
 		}
@@ -213,7 +241,7 @@ func readConfig(filepath string) Configuration {
 	err := decoder.Decode(&configuration)
 
 	if err != nil {
-		fmt.Println("error:", err)
+		log.Println("error:", err)
 	}
 
 	return configuration
@@ -233,12 +261,54 @@ func setFlag(flag *flag.FlagSet) {
 		showHelp()
 	}
 }
-
 func showHelp() {
 	fmt.Println(`
 Usage: CLI Template [OPTIONS]
 Options:
-    -c, --string     Path to config file.       
+    -c, --config     Path to config file.
+    -l, --log        Path to log file.
+    -d, --debug      DEBUG mode.
+    -t, --trace      TRACE mode.
     -h, --help       prints this help info.
     `)
+}
+func setLogOutput(config Configuration, logFilePathCL string) {
+
+	if len(config.LogFilePath) > 0 || len(logFilePathCL) > 0 {
+
+		logFilePath := ""
+
+		if len(config.LogFilePath) > 0 {
+			logFilePath = config.LogFilePath
+		}
+		if len(logFilePathCL) > 0 {
+			logFilePath = logFilePathCL
+		}
+
+		file, err := os.OpenFile(logFilePath, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
+
+		log.SetOutput(file)
+	}
+}
+func printPrettyJson(info NatsNodeTopInfo){
+	var prettyJSON bytes.Buffer
+
+	body, err := json.Marshal(info)
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	error := json.Indent(&prettyJSON, body, "", "\t")
+	if error != nil {
+		log.Println("JSON parse error: ", error)
+		return
+	}
+
+	log.Println(string(prettyJSON.Bytes()))
 }
