@@ -1,4 +1,3 @@
-// testrestcliant
 package main
 
 import (
@@ -112,7 +111,7 @@ func main() {
 	config = readConfig(*configPathCL)
 
 	isDebug := config.DebugMode
-	isTrace := config.DebugMode
+	isTrace := config.TraceMode
 
 	if *isDebugCL {
 		isDebug = *isDebugCL
@@ -135,6 +134,7 @@ func main() {
 	log.Printf("Interval of requests: %d ms\n", config.Interval)
 
 	for true {
+
 		for _, url := range config.NatsUrls {
 
 			varz := Varz{}
