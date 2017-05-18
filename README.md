@@ -1,6 +1,8 @@
 # nats-top-elk
 Utility for forwarding [NATS Message Broker](http://nats.io/) monitoring data to ELK Stack. Visit http://nats.io/documentation/ for more information about NATS.
 
+[![Build Status](https://travis-ci.org/vsundupey/nats-elk.svg?branch=master)](https://travis-ci.org/vsundupey/nats-elk)
+
 # Install 
 $ go get github.com/vsundupey/nats-elk
 
