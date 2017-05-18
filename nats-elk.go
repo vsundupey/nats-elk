@@ -146,14 +146,14 @@ func main() {
 
 			varzResponse, err := sessionToNats.Get(varzUrl, nil, &varz, &e)
 
-			if err != nil && isDebug {
+			if err != nil {
 				log.Printf("%v\n", err)
 				continue
 			}
 
 			connzResponse, err := sessionToNats.Get(connzUrl, nil, &connzs, &e)
 
-			if err != nil && isDebug {
+			if err != nil {
 				log.Printf("%v\n", err)
 				continue
 			}
