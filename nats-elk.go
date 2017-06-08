@@ -181,9 +181,10 @@ func main() {
 
 				logstashResponse, err := sessionToLogstash.Post(config.LogStashUrl, natsNodeTopInfo, nil, &e)
 
-				if err != nil && isDebug {
+				if err != nil {
 					log.Printf("Sending to logstash -> Error: ")
 					log.Printf("%v\n", err)
+					continue
 				}
 				if logstashResponse.Status() == 200 && isDebug {
 					log.Printf("Sending to logstash (%v): Success\n", config.LogStashUrl)
