@@ -20,6 +20,7 @@ type Configuration struct {
 	Interval    int
 	DebugMode   bool
 	TraceMode   bool
+	ConnectionsVerbose bool
 	LogStashUrl string
 	LgLogin     string // logstash login
 	LgPassword  string // logstash password
@@ -138,49 +139,51 @@ func main() {
 
 		for _, url := range config.NatsUrls {
 
-			varz := Varz{}
-			connzs := Connz{}
-			natsNodeTopInfo := NatsMetric{}
+			topInfo := NatsMetric{}
 
 			varzUrl := url + "/varz"
 			connzUrl := url + "/connz"
 
-			varzResponse, err := sessionToNats.Get(varzUrl, nil, &varz, &e)
+			varzResponse, err := sessionToNats.Get(varzUrl, nil, &topInfo.Varz, &e)
 
 			if err != nil {
 				log.Printf("%v\n", err)
 				continue
 			}
 
-			connzResponse, err := sessionToNats.Get(connzUrl, nil, &connzs, &e)
+			if config.ConnectionsVerbose{
 
-			if err != nil {
-				log.Printf("%v\n", err)
-				continue
+				_, err := sessionToNats.Get(connzUrl, nil, &topInfo.Connz, &e)
+
+				if err != nil {
+					log.Printf("%v\n", err)
+					continue
+				}
 			}
 
-			if varzResponse.Status() == 200 && connzResponse.Status() == 200 {
+			//connzResponse, err := sessionToNats.Get(connzUrl, nil, &connzs, &e)
+
+
+
+			if varzResponse.Status() == 200 {
 
 				if isDebug {
 					log.Printf("Get data from nats node (%v) - Success\n", url)
 				}
 
-				perSecValues := getPerSecValues(url, varz)
+				perSecValues := getPerSecValues(url, topInfo.Varz)
 
-				varz.In_bytes_sec = perSecValues.In_bytes_sec
-				varz.Out_bytes_sec = perSecValues.Out_bytes_sec
-				varz.In_msgs_sec = perSecValues.In_msgs_sec
-				varz.Out_msgs_sec = perSecValues.Out_msgs_sec
-
-				varz.Mem = varz.Mem / 1024 / 1024 // to MB
-				natsNodeTopInfo.Varz = varz
-				natsNodeTopInfo.Connz = connzs
+				topInfo.Varz.In_bytes_sec = perSecValues.In_bytes_sec
+				topInfo.Varz.Out_bytes_sec = perSecValues.Out_bytes_sec
+				topInfo.Varz.In_msgs_sec = perSecValues.In_msgs_sec
+				topInfo.Varz.Out_msgs_sec = perSecValues.Out_msgs_sec
+				topInfo.Varz.Mem = topInfo.Varz.Mem / 1024 / 1024 // to MB
 
 				if isTrace {
-					printPrettyJson(natsNodeTopInfo)
+					printPrettyJson(topInfo)
 				}
 
-				logstashResponse, err := sessionToLogstash.Post(config.LogStashUrl, natsNodeTopInfo, nil, &e)
+				logstashResponse, err := sessionToLogstash.Post(config.LogStashUrl, topInfo, nil, &e)
 
 				if err != nil {
 					log.Printf("Sending to logstash -> Error: ")
