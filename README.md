@@ -19,6 +19,7 @@ $ nats-elk -c config.json
   "interval": 1000, # ms
   "debugMode": false,
   "traceMode": false,
+  "connectionsVerbose": false,
   "logStashUrl": "http://your_logstash_address",
   "LgLogin": "demo",    # logstash login
   "LgPassword": "demo", # logstash password
