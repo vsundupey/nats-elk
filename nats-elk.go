@@ -1,17 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
-	"log"
 
 	"github.com/jmcvetta/napping"
-	"bytes"
+	"github.com/natefinch/lumberjack"
 )
 
 type Configuration struct {
@@ -24,7 +25,7 @@ type Configuration struct {
 	LgPassword  string // logstash password
 	NatsUrls    []string
 }
-type NatsNodeTopInfo struct {
+type NatsMetric struct {
 	Varz  Varz
 	Connz Connz
 }
@@ -85,7 +86,7 @@ type PrevInOutValues struct {
 	In_bytes  int
 	Out_bytes int
 
-	Now       time.Time
+	Now time.Time
 }
 type InOutPerSec struct {
 	In_msgs_sec   int
@@ -139,7 +140,7 @@ func main() {
 
 			varz := Varz{}
 			connzs := Connz{}
-			natsNodeTopInfo := NatsNodeTopInfo{}
+			natsNodeTopInfo := NatsMetric{}
 
 			varzUrl := url + "/varz"
 			connzUrl := url + "/connz"
@@ -286,16 +287,15 @@ func setLogOutput(config Configuration, logFilePathCL string) {
 			logFilePath = logFilePathCL
 		}
 
-		file, err := os.OpenFile(logFilePath, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
-
-		if err != nil {
-			log.Fatalf("error opening file: %v", err)
-		}
-
-		log.SetOutput(file)
+		log.SetOutput(&lumberjack.Logger{
+			Filename:   logFilePath,
+			MaxSize:    500, // megabytes
+			MaxBackups: 3,
+			MaxAge:     28, //days
+		})
 	}
 }
-func printPrettyJson(info NatsNodeTopInfo){
+func printPrettyJson(info NatsMetric) {
 	var prettyJSON bytes.Buffer
 
 	body, err := json.Marshal(info)
